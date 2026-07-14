@@ -1,6 +1,6 @@
 # 🔌🌳 Grove Periphery
 
-![Foundry CI](https://github.com/grove-labs/grove-periphery/actions/workflows/test.yml/badge.svg)[![Foundry](https://img.shields.io/badge/Built%20with-Foundry-FFDB1C.svg)](https://getfoundry.sh/)[![License: AGPL v3](https://img.shields.io/badge/License-AGPL%20v3-blue.svg)](https://github.com/grove-labs/grove-periphery/blob/main/LICENSE)![Ethereum](https://img.shields.io/badge/Ethereum-3C3C3D?style=flat&logo=ethereum&logoColor=white)
+![Foundry CI](https://github.com/grove-labs/grove-periphery/actions/workflows/ci.yml/badge.svg)[![Foundry](https://img.shields.io/badge/Built%20with-Foundry-FFDB1C.svg)](https://getfoundry.sh/)[![License: AGPL v3](https://img.shields.io/badge/License-AGPL%20v3-blue.svg)](https://github.com/grove-labs/grove-periphery/blob/main/LICENSE)![Ethereum](https://img.shields.io/badge/Ethereum-3C3C3D?style=flat&logo=ethereum&logoColor=white)
 
 Peripheral contracts supporting Grove protocol operations.
 
@@ -131,7 +131,7 @@ These steps apply to the whole repository, independent of any single contract.
 git clone --recurse-submodules <repo-url>
 cd grove-periphery
 cp .env.example .env
-# then set ETH_RPC_URL in .env
+# then set MAINNET_RPC_URL in .env
 ```
 
 If you already cloned without submodules, run `git submodule update --init --recursive`.
@@ -144,7 +144,7 @@ forge build
 
 ### Test
 
-The test suite forks Ethereum mainnet, so `ETH_RPC_URL` must be set (see `.env.example`).
+The test suite forks Ethereum mainnet, so `MAINNET_RPC_URL` must be set (see `.env.example`).
 
 ```shell
 forge test
