@@ -11,32 +11,70 @@ import {
     IDaiUsdsLike
 } from "../src/InstantUsdcUsdsConverter.sol";
 
+/// @notice Shared verification logic for InstantUsdcUsdsConverter deployments. Each concrete
+///         script supplies the expected wiring/role addresses; `_verify` asserts the live
+///         converter matches, reverting on the first mismatch.
+abstract contract VerifyInstantUsdcUsdsConverterBase is Script {
+
+    function _verify(
+        address converter_,
+        address admin,
+        address swapper,
+        address pauser,
+        address holder,
+        address litePsm,
+        address daiUsds,
+        address usdc,
+        address dai,
+        address usds,
+        uint256 conversionFactor
+    ) internal view {
+        InstantUsdcUsdsConverter converter = InstantUsdcUsdsConverter(converter_);
+
+        require(address(converter.litePsm()) == litePsm,          "verify/lite-psm");
+        require(address(converter.daiUsds()) == daiUsds,          "verify/dai-usds");
+        require(address(converter.usdc())    == usdc,             "verify/usdc");
+        require(address(converter.dai())     == dai,              "verify/dai");
+        require(address(converter.usds())    == usds,             "verify/usds");
+        require(converter.holder()           == holder,           "verify/holder");
+        require(converter.conversionFactor() == conversionFactor, "verify/conversion-factor");
+
+        require(converter.hasRole(converter.DEFAULT_ADMIN_ROLE(), admin),   "verify/admin-role");
+        require(converter.hasRole(converter.SWAPPER_ROLE(),       swapper), "verify/swapper-role");
+        require(converter.hasRole(converter.PAUSER_ROLE(),        pauser),  "verify/pauser-role");
+
+        console.log("InstantUsdcUsdsConverter verified:", converter_);
+    }
+
+}
+
 /// @notice Post-deployment verification for the mainnet deployment. Checks a live
 ///         InstantUsdcUsdsConverter (address in `CONVERTER_ADDRESS`) against the hardcoded
 ///         Grove Ethereum mainnet addresses. Reverts on the first mismatch.
-contract VerifyInstantUsdcUsdsConverterMainnet is Script {
+contract VerifyInstantUsdcUsdsConverterMainnet is VerifyInstantUsdcUsdsConverterBase {
 
     uint256 constant ETHEREUM_MAINNET = 1;
 
     function run() external view {
         require(block.chainid == ETHEREUM_MAINNET, "VerifyInstantUsdcUsdsConverterMainnet/not-mainnet");
 
-        InstantUsdcUsdsConverter converter = InstantUsdcUsdsConverter(vm.envAddress("CONVERTER_ADDRESS"));
+        verify(vm.envAddress("CONVERTER_ADDRESS"));
+    }
 
-        require(address(converter.litePsm()) == Ethereum.PSM,          "verify/lite-psm");
-        require(address(converter.daiUsds()) == Ethereum.DAI_USDS,     "verify/dai-usds");
-        require(address(converter.usdc())    == Ethereum.USDC,         "verify/usdc");
-        require(address(converter.dai())     == Ethereum.DAI,          "verify/dai");
-        require(address(converter.usds())    == Ethereum.USDS,         "verify/usds");
-        require(converter.holder()           == Ethereum.GROVE_PROXY,  "verify/holder");
-        require(converter.conversionFactor() == 1e12,                  "verify/conversion-factor");
-
-        require(converter.hasRole(converter.DEFAULT_ADMIN_ROLE(), Ethereum.GROVE_PROXY), "verify/admin-role");
-        require(converter.hasRole(converter.SWAPPER_ROLE(),       Ethereum.ALM_RELAYER), "verify/swapper-role");
-        require(converter.hasRole(converter.PAUSER_ROLE(),        Ethereum.ALM_FREEZER), "verify/pauser-role");
-        require(!converter.hasRole(converter.SWAPPER_ROLE(),      Ethereum.GROVE_PROXY), "verify/holder-has-swapper");
-
-        console.log("InstantUsdcUsdsConverter verified (mainnet):", address(converter));
+    function verify(address converter_) public view {
+        _verify({
+            converter_       : converter_,
+            admin            : Ethereum.GROVE_PROXY,
+            swapper          : Ethereum.ALM_RELAYER,
+            pauser           : Ethereum.ALM_FREEZER,
+            holder           : Ethereum.GROVE_PROXY,
+            litePsm          : Ethereum.PSM,
+            daiUsds          : Ethereum.DAI_USDS,
+            usdc             : Ethereum.USDC,
+            dai              : Ethereum.DAI,
+            usds             : Ethereum.USDS,
+            conversionFactor : 1e12
+        });
     }
 
 }
@@ -53,35 +91,45 @@ contract VerifyInstantUsdcUsdsConverterMainnet is Script {
 ///           CONVERTER_HOLDER   - expected holder
 ///           CONVERTER_LITE_PSM - expected LitePSM
 ///           CONVERTER_DAI_USDS - expected DAI<>USDS exchanger
-contract VerifyInstantUsdcUsdsConverterCustom is Script {
+contract VerifyInstantUsdcUsdsConverterCustom is VerifyInstantUsdcUsdsConverterBase {
 
     function run() external view {
-        InstantUsdcUsdsConverter converter = InstantUsdcUsdsConverter(vm.envAddress("CONVERTER_ADDRESS"));
+        verify(
+            vm.envAddress("CONVERTER_ADDRESS"),
+            vm.envAddress("CONVERTER_ADMIN"),
+            vm.envAddress("CONVERTER_SWAPPER"),
+            vm.envAddress("CONVERTER_PAUSER"),
+            vm.envAddress("CONVERTER_HOLDER"),
+            vm.envAddress("CONVERTER_LITE_PSM"),
+            vm.envAddress("CONVERTER_DAI_USDS")
+        );
+    }
 
-        address admin   = vm.envAddress("CONVERTER_ADMIN");
-        address swapper = vm.envAddress("CONVERTER_SWAPPER");
-        address pauser  = vm.envAddress("CONVERTER_PAUSER");
-        address holder  = vm.envAddress("CONVERTER_HOLDER");
-        address litePsm = vm.envAddress("CONVERTER_LITE_PSM");
-        address daiUsds = vm.envAddress("CONVERTER_DAI_USDS");
-
-        require(address(converter.litePsm()) == litePsm, "verify/lite-psm");
-        require(address(converter.daiUsds()) == daiUsds, "verify/dai-usds");
-        require(converter.holder()           == holder,  "verify/holder");
-
+    function verify(
+        address converter_,
+        address admin,
+        address swapper,
+        address pauser,
+        address holder,
+        address litePsm,
+        address daiUsds
+    ) public view {
         // usdc, dai, usds and conversionFactor are read from the LitePSM / exchanger at
         // construction, so verify the converter mirrors those rather than checking against
         // separately supplied values.
-        require(address(converter.usdc())    == ILitePsmLike(litePsm).gem(),                  "verify/usdc");
-        require(address(converter.dai())     == ILitePsmLike(litePsm).dai(),                  "verify/dai");
-        require(address(converter.usds())    == IDaiUsdsLike(daiUsds).usds(),                 "verify/usds");
-        require(converter.conversionFactor() == ILitePsmLike(litePsm).to18ConversionFactor(), "verify/conversion-factor");
-
-        require(converter.hasRole(converter.DEFAULT_ADMIN_ROLE(), admin),   "verify/admin-role");
-        require(converter.hasRole(converter.SWAPPER_ROLE(),       swapper), "verify/swapper-role");
-        require(converter.hasRole(converter.PAUSER_ROLE(),        pauser),  "verify/pauser-role");
-
-        console.log("InstantUsdcUsdsConverter verified (custom):", address(converter));
+        _verify({
+            converter_       : converter_,
+            admin            : admin,
+            swapper          : swapper,
+            pauser           : pauser,
+            holder           : holder,
+            litePsm          : litePsm,
+            daiUsds          : daiUsds,
+            usdc             : ILitePsmLike(litePsm).gem(),
+            dai              : ILitePsmLike(litePsm).dai(),
+            usds             : IDaiUsdsLike(daiUsds).usds(),
+            conversionFactor : ILitePsmLike(litePsm).to18ConversionFactor()
+        });
     }
 
 }

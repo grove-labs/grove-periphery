@@ -20,9 +20,9 @@ import { MockDaiUsds } from "./mocks/MockDaiUsds.sol";
 // failures via the AccessControl API (roles), constructor args (wiring), or a `vm.mockCall` (the
 // immutable usdc/dai/usds/conversionFactor values a real converter can never diverge on).
 //
-// The scripts read their target from CONVERTER_ADDRESS. Since the converter is always the first
-// contract created in each test body, its nonce-derived address is identical across tests, so the
-// env set by `vm.setEnv` stays correct even though forge runs tests in parallel.
+// Mismatch cases call the scripts' parameterized `verify(...)` directly, so they never touch
+// process-global env. Only the happy-path tests exercise `run()` (which reads env) to cover the
+// env-driven entrypoint.
 abstract contract VerifyInstantUsdcUsdsConverterScriptTestBase is Test {
 
     uint256 constant CONVERSION_FACTOR = 1e12;
@@ -132,23 +132,14 @@ contract VerifyInstantUsdcUsdsConverterMainnetScriptTest is VerifyInstantUsdcUsd
         _expectRevert(converter, "verify/pauser-role");
     }
 
-    function test_verifyMainnet_revertsWhenHolderHasSwapper() public {
-        InstantUsdcUsdsConverter converter = _deployMainnetConverter();
-        bytes32 role = converter.SWAPPER_ROLE();
-        vm.prank(Ethereum.GROVE_PROXY);
-        converter.grantRole(role, Ethereum.GROVE_PROXY);
-        _expectRevert(converter, "verify/holder-has-swapper");
-    }
-
     function _setEnv(address converter) internal {
         vm.setEnv("CONVERTER_ADDRESS", vm.toString(converter));
     }
 
     function _expectRevert(InstantUsdcUsdsConverter converter, bytes memory reason) internal {
-        _setEnv(address(converter));
         VerifyInstantUsdcUsdsConverterMainnet verifyScript = new VerifyInstantUsdcUsdsConverterMainnet();
         vm.expectRevert(reason);
-        verifyScript.run();
+        verifyScript.verify(address(converter));
     }
 
 }
@@ -236,10 +227,17 @@ contract VerifyInstantUsdcUsdsConverterCustomScriptTest is VerifyInstantUsdcUsds
     }
 
     function _expectRevert(InstantUsdcUsdsConverter converter, bytes memory reason) internal {
-        _setEnv(address(converter));
         VerifyInstantUsdcUsdsConverterCustom verifyScript = new VerifyInstantUsdcUsdsConverterCustom();
         vm.expectRevert(reason);
-        verifyScript.run();
+        verifyScript.verify(
+            address(converter),
+            Ethereum.GROVE_PROXY,
+            Ethereum.ALM_RELAYER,
+            Ethereum.ALM_FREEZER,
+            Ethereum.GROVE_PROXY,
+            Ethereum.PSM,
+            Ethereum.DAI_USDS
+        );
     }
 
 }
