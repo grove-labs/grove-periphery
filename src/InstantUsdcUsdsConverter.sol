@@ -160,7 +160,7 @@ contract InstantUsdcUsdsConverter is AccessControl, Pausable, ReentrancyGuard {
         usdsOut = daiOut;
 
         // Confirm the holder actually received the USDS.
-        require(usds.balanceOf(holder) - holderUsdsBefore == usdsOut, "InstantUsdcUsdsConverter/usds-not-received");
+        require(usds.balanceOf(holder) == holderUsdsBefore + usdsOut, "InstantUsdcUsdsConverter/usds-not-received");
 
         emit Swapped(msg.sender, usdcAmount, usdsOut, noFeeRoute);
     }
