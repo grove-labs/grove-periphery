@@ -1,6 +1,9 @@
 # 🔌🌳 Grove Periphery
 
-![Foundry CI](https://github.com/grove-labs/grove-periphery/actions/workflows/ci.yml/badge.svg)[![Foundry](https://img.shields.io/badge/Built%20with-Foundry-FFDB1C.svg)](https://getfoundry.sh/)[![License: AGPL v3](https://img.shields.io/badge/License-AGPL%20v3-blue.svg)](https://github.com/grove-labs/grove-periphery/blob/main/LICENSE)![Ethereum](https://img.shields.io/badge/Ethereum-3C3C3D?style=flat&logo=ethereum&logoColor=white)
+![Foundry CI](https://github.com/grove-labs/grove-periphery/actions/workflows/ci.yml/badge.svg)
+[![Foundry](https://img.shields.io/badge/Built%20with-Foundry-FFDB1C.svg)](https://getfoundry.sh/)
+[![License: AGPL v3](https://img.shields.io/badge/License-AGPL%20v3-blue.svg)](https://github.com/grove-labs/grove-periphery/blob/main/LICENSE)
+![Ethereum](https://img.shields.io/badge/Ethereum-3C3C3D?style=flat&logo=ethereum&logoColor=white)
 
 Peripheral contracts supporting Grove protocol operations.
 

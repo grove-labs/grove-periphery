@@ -234,7 +234,7 @@ contract InstantUsdcUsdsConverterAdminTest is InstantUsdcUsdsConverterTestBase {
         assertEq(converter.getRoleAdmin(PAUSER_ROLE),  ADMIN_ROLE);
     }
 
-    function test_holder_canRenounceOwnRole() public {
+    function test_swapper_canRenounceOwnRole() public {
         vm.prank(ALM_RELAYER);
         converter.renounceRole(SWAPPER_ROLE, ALM_RELAYER);
 
