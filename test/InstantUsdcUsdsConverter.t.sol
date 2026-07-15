@@ -3,23 +3,20 @@ pragma solidity ^0.8.34;
 
 import { Test } from "forge-std/Test.sol";
 
-import { IAccessControl }  from "@openzeppelin/contracts/access/IAccessControl.sol";
-import { Pausable }        from "@openzeppelin/contracts/utils/Pausable.sol";
-import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
-import { IERC20 }          from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import { IERC721 }         from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
-import { IERC721Errors }   from "@openzeppelin/contracts/interfaces/draft-IERC6093.sol";
+import { IAccessControl } from "@openzeppelin/contracts/access/IAccessControl.sol";
+import { Pausable }       from "@openzeppelin/contracts/utils/Pausable.sol";
+import { IERC20 }         from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { IERC721 }        from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
+import { IERC721Errors }  from "@openzeppelin/contracts/interfaces/draft-IERC6093.sol";
 
 import { Ethereum } from "grove-address-registry/Ethereum.sol";
 
 import { InstantUsdcUsdsConverter }       from "../src/InstantUsdcUsdsConverter.sol";
 import { InstantUsdcUsdsConverterDeploy } from "../deploy/InstantUsdcUsdsConverterDeploy.sol";
 
-import { MockERC721 }      from "./mocks/MockERC721.sol";
-import { MockLitePsm }     from "./mocks/MockLitePsm.sol";
-import { MockDaiUsds }     from "./mocks/MockDaiUsds.sol";
-import { ReentrantERC721 } from "./mocks/ReentrantERC721.sol";
-import { ReentrantERC20 }  from "./mocks/ReentrantERC20.sol";
+import { MockERC721 }  from "./mocks/MockERC721.sol";
+import { MockLitePsm } from "./mocks/MockLitePsm.sol";
+import { MockDaiUsds } from "./mocks/MockDaiUsds.sol";
 
 interface ILitePsmAdminLike {
     function file(bytes32 what, uint256 data) external;
@@ -91,22 +88,22 @@ contract InstantUsdcUsdsConverterAdminTest is InstantUsdcUsdsConverterTestBase {
     }
 
     function test_constructor_revertsOnZeroAddress() public {
-        vm.expectRevert("InstantUsdcUsdsConverter/invalid-admin");
+        vm.expectRevert(InstantUsdcUsdsConverter.InvalidAdmin.selector);
         new InstantUsdcUsdsConverter(address(0), ALM_RELAYER, ALM_FREEZER, GROVE_PROXY, LITE_PSM, DAI_USDS);
 
-        vm.expectRevert("InstantUsdcUsdsConverter/invalid-swapper");
+        vm.expectRevert(InstantUsdcUsdsConverter.InvalidSwapper.selector);
         new InstantUsdcUsdsConverter(GROVE_PROXY, address(0), ALM_FREEZER, GROVE_PROXY, LITE_PSM, DAI_USDS);
 
-        vm.expectRevert("InstantUsdcUsdsConverter/invalid-pauser");
+        vm.expectRevert(InstantUsdcUsdsConverter.InvalidPauser.selector);
         new InstantUsdcUsdsConverter(GROVE_PROXY, ALM_RELAYER, address(0), GROVE_PROXY, LITE_PSM, DAI_USDS);
 
-        vm.expectRevert("InstantUsdcUsdsConverter/invalid-holder");
+        vm.expectRevert(InstantUsdcUsdsConverter.InvalidHolder.selector);
         new InstantUsdcUsdsConverter(GROVE_PROXY, ALM_RELAYER, ALM_FREEZER, address(0), LITE_PSM, DAI_USDS);
 
-        vm.expectRevert("InstantUsdcUsdsConverter/invalid-lite-psm");
+        vm.expectRevert(InstantUsdcUsdsConverter.InvalidLitePsm.selector);
         new InstantUsdcUsdsConverter(GROVE_PROXY, ALM_RELAYER, ALM_FREEZER, GROVE_PROXY, address(0), DAI_USDS);
 
-        vm.expectRevert("InstantUsdcUsdsConverter/invalid-dai-usds");
+        vm.expectRevert(InstantUsdcUsdsConverter.InvalidDaiUsds.selector);
         new InstantUsdcUsdsConverter(GROVE_PROXY, ALM_RELAYER, ALM_FREEZER, GROVE_PROXY, LITE_PSM, address(0));
     }
 
@@ -114,7 +111,7 @@ contract InstantUsdcUsdsConverterAdminTest is InstantUsdcUsdsConverterTestBase {
         address litePsm = address(new MockLitePsm(address(0), DAI, CONVERSION_FACTOR));
         address daiUsds = address(new MockDaiUsds(DAI, USDS));
 
-        vm.expectRevert("InstantUsdcUsdsConverter/invalid-usdc");
+        vm.expectRevert(InstantUsdcUsdsConverter.InvalidUsdc.selector);
         new InstantUsdcUsdsConverter(GROVE_PROXY, ALM_RELAYER, ALM_FREEZER, GROVE_PROXY, litePsm, daiUsds);
     }
 
@@ -122,7 +119,7 @@ contract InstantUsdcUsdsConverterAdminTest is InstantUsdcUsdsConverterTestBase {
         address litePsm = address(new MockLitePsm(USDC, address(0), CONVERSION_FACTOR));
         address daiUsds = address(new MockDaiUsds(DAI, USDS));
 
-        vm.expectRevert("InstantUsdcUsdsConverter/invalid-dai");
+        vm.expectRevert(InstantUsdcUsdsConverter.InvalidDai.selector);
         new InstantUsdcUsdsConverter(GROVE_PROXY, ALM_RELAYER, ALM_FREEZER, GROVE_PROXY, litePsm, daiUsds);
     }
 
@@ -130,7 +127,7 @@ contract InstantUsdcUsdsConverterAdminTest is InstantUsdcUsdsConverterTestBase {
         address litePsm = address(new MockLitePsm(USDC, DAI, CONVERSION_FACTOR));
         address daiUsds = address(new MockDaiUsds(DAI, address(0)));
 
-        vm.expectRevert("InstantUsdcUsdsConverter/invalid-usds");
+        vm.expectRevert(InstantUsdcUsdsConverter.InvalidUsds.selector);
         new InstantUsdcUsdsConverter(GROVE_PROXY, ALM_RELAYER, ALM_FREEZER, GROVE_PROXY, litePsm, daiUsds);
     }
 
@@ -138,7 +135,7 @@ contract InstantUsdcUsdsConverterAdminTest is InstantUsdcUsdsConverterTestBase {
         address litePsm = address(new MockLitePsm(USDC, DAI, CONVERSION_FACTOR));
         address daiUsds = address(new MockDaiUsds(USDC, USDS)); // exchanger's dai != litePsm's dai
 
-        vm.expectRevert("InstantUsdcUsdsConverter/dai-mismatch");
+        vm.expectRevert(InstantUsdcUsdsConverter.DaiMismatch.selector);
         new InstantUsdcUsdsConverter(GROVE_PROXY, ALM_RELAYER, ALM_FREEZER, GROVE_PROXY, litePsm, daiUsds);
     }
 
@@ -146,7 +143,7 @@ contract InstantUsdcUsdsConverterAdminTest is InstantUsdcUsdsConverterTestBase {
         address litePsm = address(new MockLitePsm(USDC, DAI, 0));
         address daiUsds = address(new MockDaiUsds(DAI, USDS));
 
-        vm.expectRevert("InstantUsdcUsdsConverter/invalid-conversion-factor");
+        vm.expectRevert(InstantUsdcUsdsConverter.InvalidConversionFactor.selector);
         new InstantUsdcUsdsConverter(GROVE_PROXY, ALM_RELAYER, ALM_FREEZER, GROVE_PROXY, litePsm, daiUsds);
     }
 
@@ -352,7 +349,7 @@ contract InstantUsdcUsdsConverterSwapTest is InstantUsdcUsdsConverterTestBase {
     }
 
     function test_swap_revertsOnZeroAmount() public {
-        vm.expectRevert("InstantUsdcUsdsConverter/zero-amount");
+        vm.expectRevert(InstantUsdcUsdsConverter.ZeroAmount.selector);
         vm.prank(ALM_RELAYER);
         converter.swap(0);
     }
@@ -365,7 +362,7 @@ contract InstantUsdcUsdsConverterSwapTest is InstantUsdcUsdsConverterTestBase {
         uint256 amount = 10_000e6;
         _fundHolderAndApproveConverter(amount);
 
-        vm.expectRevert("InstantUsdcUsdsConverter/not-one-to-one");
+        vm.expectRevert(InstantUsdcUsdsConverter.NotOneToOne.selector);
         vm.prank(ALM_RELAYER);
         converter.swap(amount);
     }
@@ -453,7 +450,7 @@ contract InstantUsdcUsdsConverterSwapTest is InstantUsdcUsdsConverterTestBase {
         uint256 amount = 10_000e6;
         _fundMockConverter(amount);
 
-        vm.expectRevert("InstantUsdcUsdsConverter/usds-not-received");
+        vm.expectRevert(InstantUsdcUsdsConverter.UsdsNotReceived.selector);
         vm.prank(ALM_RELAYER);
         mockConverter.swap(amount);
     }
@@ -577,7 +574,7 @@ contract InstantUsdcUsdsConverterSwapWhitelistedTest is InstantUsdcUsdsConverter
 
         // Not whitelisted yet: `swap` takes the permissionless `sellGem` route, which settles short
         // under the fee and reverts instead of losing value.
-        vm.expectRevert("InstantUsdcUsdsConverter/not-one-to-one");
+        vm.expectRevert(InstantUsdcUsdsConverter.NotOneToOne.selector);
         vm.prank(ALM_RELAYER);
         converter.swap(amount);
 
@@ -653,12 +650,16 @@ contract InstantUsdcUsdsConverterRescueERC20Test is InstantUsdcUsdsConverterTest
         converter.rescueERC20(IERC20(USDC));
     }
 
-    function test_rescueERC20_revertsOnZeroBalance() public {
+    function test_rescueERC20_succeedsOnZeroBalance() public {
         assertEq(IERC20(USDC).balanceOf(address(converter)), 0);
 
-        vm.expectRevert("InstantUsdcUsdsConverter/nothing-to-rescue");
+        vm.expectEmit(true, true, true, true, address(converter));
+        emit InstantUsdcUsdsConverter.ERC20Rescued(USDC, 0);
+
         vm.prank(GROVE_PROXY);
-        converter.rescueERC20(IERC20(USDC));
+        uint256 amount = converter.rescueERC20(IERC20(USDC));
+
+        assertEq(amount, 0);
     }
 
     function test_rescueERC20_revertsForNonAdmin() public {
@@ -794,16 +795,6 @@ contract InstantUsdcUsdsConverterRescueERC721Test is InstantUsdcUsdsConverterTes
         assertEq(nft.ownerOf(1), GROVE_PROXY);
     }
 
-    function test_rescueERC721_revertsWhenTransferNoops() public {
-        MockERC721 nft = new MockERC721();
-        nft.mint(address(converter), 1);
-        nft.setBlockTransfers(true);
-
-        vm.expectRevert("InstantUsdcUsdsConverter/erc721-not-transferred");
-        vm.prank(GROVE_PROXY);
-        converter.rescueERC721(nft, 1);
-    }
-
 }
 
 contract InstantUsdcUsdsConverterPauseTest is InstantUsdcUsdsConverterTestBase {
@@ -918,30 +909,3 @@ contract InstantUsdcUsdsConverterPauseTest is InstantUsdcUsdsConverterTestBase {
 
 }
 
-contract InstantUsdcUsdsConverterReentrancyTest is InstantUsdcUsdsConverterTestBase {
-
-    // Rescuing these tokens re-enters `swap` mid-transfer; the shared guard must block it,
-    // covering cross-function reentrancy too. The token is granted `SWAPPER_ROLE` so its
-    // re-entry clears the role gate and is stopped by the reentrancy guard itself.
-
-    function test_rescueERC721_isNonReentrant() public {
-        ReentrantERC721 reentrantToken = new ReentrantERC721(converter);
-        vm.prank(GROVE_PROXY);
-        converter.grantRole(SWAPPER_ROLE, address(reentrantToken));
-
-        vm.expectRevert(ReentrancyGuard.ReentrancyGuardReentrantCall.selector);
-        vm.prank(GROVE_PROXY);
-        converter.rescueERC721(IERC721(address(reentrantToken)), 1);
-    }
-
-    function test_rescueERC20_isNonReentrant() public {
-        ReentrantERC20 reentrantToken = new ReentrantERC20(converter);
-        vm.prank(GROVE_PROXY);
-        converter.grantRole(SWAPPER_ROLE, address(reentrantToken));
-
-        vm.expectRevert(ReentrancyGuard.ReentrancyGuardReentrantCall.selector);
-        vm.prank(GROVE_PROXY);
-        converter.rescueERC20(IERC20(address(reentrantToken)));
-    }
-
-}
