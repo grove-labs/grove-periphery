@@ -41,12 +41,18 @@ contract InstantUsdcUsdsConverter is AccessControl, Pausable {
     /// @notice Role permitted to call {pause} (pausing only; unpausing is admin-only).
     bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
 
+    /// @notice The DAI LitePSM used to sell USDC for DAI.
     ILitePsmLike public immutable litePsm;
+    /// @notice The DAI<>USDS exchanger used to convert the DAI into USDS.
     IDaiUsdsLike public immutable daiUsds;
-    IERC20       public immutable usdc;
-    IERC20       public immutable dai;
-    IERC20       public immutable usds;
-    address      public immutable holder;
+    /// @notice The USDC token pulled from the holder (the PSM's `gem`).
+    IERC20 public immutable usdc;
+    /// @notice The DAI token the PSM pays out and the exchanger consumes.
+    IERC20 public immutable dai;
+    /// @notice The USDS token delivered to the holder.
+    IERC20 public immutable usds;
+    /// @notice The Grove governance proxy; USDC is pulled from it and all outputs/rescues are sent to it.
+    address public immutable holder;
 
     /// @notice Multiplier turning a USDC (gem) amount into its 1:1 USDS (wad) equivalent.
     uint256 public immutable conversionFactor;
