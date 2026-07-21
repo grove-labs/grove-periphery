@@ -124,12 +124,12 @@ contract VerifyInstantUsdcUsdsConverterMainnetScriptTest is VerifyInstantUsdcUsd
         _expectRevert(converter, "verify/swapper-role");
     }
 
-    function test_verifyMainnet_revertsOnPauserRoleMismatch() public {
+    function test_verifyMainnet_revertsOnFreezerRoleMismatch() public {
         InstantUsdcUsdsConverter converter = _deployMainnetConverter();
-        bytes32 role = converter.PAUSER_ROLE();
+        bytes32 role = converter.FREEZER_ROLE();
         vm.prank(Ethereum.GROVE_PROXY);
         converter.revokeRole(role, Ethereum.ALM_FREEZER);
-        _expectRevert(converter, "verify/pauser-role");
+        _expectRevert(converter, "verify/freezer-role");
     }
 
     function _setEnv(address converter) internal {
@@ -208,19 +208,19 @@ contract VerifyInstantUsdcUsdsConverterCustomScriptTest is VerifyInstantUsdcUsds
         _expectRevert(converter, "verify/swapper-role");
     }
 
-    function test_verifyCustom_revertsOnPauserRoleMismatch() public {
+    function test_verifyCustom_revertsOnFreezerRoleMismatch() public {
         InstantUsdcUsdsConverter converter = _deployConverter(Ethereum.GROVE_PROXY, Ethereum.PSM, Ethereum.DAI_USDS);
-        bytes32 role = converter.PAUSER_ROLE();
+        bytes32 role = converter.FREEZER_ROLE();
         vm.prank(Ethereum.GROVE_PROXY);
         converter.revokeRole(role, Ethereum.ALM_FREEZER);
-        _expectRevert(converter, "verify/pauser-role");
+        _expectRevert(converter, "verify/freezer-role");
     }
 
     function _setEnv(address converter) internal {
         vm.setEnv("CONVERTER_ADDRESS",  vm.toString(converter));
         vm.setEnv("CONVERTER_ADMIN",    vm.toString(Ethereum.GROVE_PROXY));
         vm.setEnv("CONVERTER_SWAPPER",  vm.toString(Ethereum.ALM_RELAYER));
-        vm.setEnv("CONVERTER_PAUSER",   vm.toString(Ethereum.ALM_FREEZER));
+        vm.setEnv("CONVERTER_FREEZER",  vm.toString(Ethereum.ALM_FREEZER));
         vm.setEnv("CONVERTER_HOLDER",   vm.toString(Ethereum.GROVE_PROXY));
         vm.setEnv("CONVERTER_LITE_PSM", vm.toString(Ethereum.PSM));
         vm.setEnv("CONVERTER_DAI_USDS", vm.toString(Ethereum.DAI_USDS));

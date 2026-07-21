@@ -12,7 +12,7 @@ library InstantUsdcUsdsConverterDeploy {
     function deploy(
         address admin,
         address swapper,
-        address pauser,
+        address freezer,
         address holder,
         address litePsm,
         address daiUsds
@@ -20,7 +20,7 @@ library InstantUsdcUsdsConverterDeploy {
         converter = new InstantUsdcUsdsConverter({
             admin_   : admin,
             swapper_ : swapper,
-            pauser_  : pauser,
+            freezer_ : freezer,
             holder_  : holder,
             litePsm_ : litePsm,
             daiUsds_ : daiUsds
@@ -29,13 +29,13 @@ library InstantUsdcUsdsConverterDeploy {
 
     /// @notice Deploys InstantUsdcUsdsConverter wired to the Grove Ethereum mainnet addresses:
     ///         admin and holder are the Grove governance subproxy, the swapper is the ALM relayer,
-    ///         the pauser is the ALM freezer multisig, the LitePSM is the DAI LitePSM-USDC and the
+    ///         the freezer is the ALM freezer multisig, the LitePSM is the DAI LitePSM-USDC and the
     ///         DAI<>USDS exchanger is the canonical DaiUsds converter.
     function deployMainnet() internal returns (InstantUsdcUsdsConverter converter) {
         converter = deploy({
             admin   : Ethereum.GROVE_PROXY,
             swapper : Ethereum.ALM_RELAYER,
-            pauser  : Ethereum.ALM_FREEZER,
+            freezer : Ethereum.ALM_FREEZER,
             holder  : Ethereum.GROVE_PROXY,
             litePsm : Ethereum.PSM,
             daiUsds : Ethereum.DAI_USDS

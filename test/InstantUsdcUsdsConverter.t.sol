@@ -4,7 +4,6 @@ pragma solidity ^0.8.34;
 import { Test } from "forge-std/Test.sol";
 
 import { IAccessControl } from "@openzeppelin/contracts/access/IAccessControl.sol";
-import { Pausable }       from "@openzeppelin/contracts/utils/Pausable.sol";
 import { IERC20 }         from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { IERC721 }        from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import { IERC721Errors }  from "@openzeppelin/contracts/interfaces/draft-IERC6093.sol";
@@ -41,7 +40,7 @@ contract InstantUsdcUsdsConverterTestBase is Test {
     InstantUsdcUsdsConverter converter;
 
     bytes32 SWAPPER_ROLE;
-    bytes32 PAUSER_ROLE;
+    bytes32 FREEZER_ROLE;
     bytes32 ADMIN_ROLE;
 
     address stranger = makeAddr("stranger");
@@ -52,7 +51,7 @@ contract InstantUsdcUsdsConverterTestBase is Test {
         converter = InstantUsdcUsdsConverterDeploy.deployMainnet();
 
         SWAPPER_ROLE = converter.SWAPPER_ROLE();
-        PAUSER_ROLE  = converter.PAUSER_ROLE();
+        FREEZER_ROLE = converter.FREEZER_ROLE();
         ADMIN_ROLE   = converter.DEFAULT_ADMIN_ROLE();
     }
 
@@ -79,12 +78,10 @@ contract InstantUsdcUsdsConverterAdminTest is InstantUsdcUsdsConverterTestBase {
 
         assertTrue(converter.hasRole(ADMIN_ROLE,    GROVE_PROXY));
         assertTrue(converter.hasRole(SWAPPER_ROLE,  ALM_RELAYER));
-        assertTrue(converter.hasRole(PAUSER_ROLE,   ALM_FREEZER));
+        assertTrue(converter.hasRole(FREEZER_ROLE,  ALM_FREEZER));
         assertFalse(converter.hasRole(SWAPPER_ROLE, GROVE_PROXY));
-        assertFalse(converter.hasRole(PAUSER_ROLE,  ALM_RELAYER));
+        assertFalse(converter.hasRole(FREEZER_ROLE, ALM_RELAYER));
         assertFalse(converter.hasRole(SWAPPER_ROLE, ALM_FREEZER));
-
-        assertFalse(converter.paused());
     }
 
     function test_constructor_revertsOnZeroAddress() public {
@@ -94,7 +91,7 @@ contract InstantUsdcUsdsConverterAdminTest is InstantUsdcUsdsConverterTestBase {
         vm.expectRevert(InstantUsdcUsdsConverter.InvalidSwapper.selector);
         new InstantUsdcUsdsConverter(GROVE_PROXY, address(0), ALM_FREEZER, GROVE_PROXY, LITE_PSM, DAI_USDS);
 
-        vm.expectRevert(InstantUsdcUsdsConverter.InvalidPauser.selector);
+        vm.expectRevert(InstantUsdcUsdsConverter.InvalidFreezer.selector);
         new InstantUsdcUsdsConverter(GROVE_PROXY, ALM_RELAYER, address(0), GROVE_PROXY, LITE_PSM, DAI_USDS);
 
         vm.expectRevert(InstantUsdcUsdsConverter.InvalidHolder.selector);
@@ -173,27 +170,29 @@ contract InstantUsdcUsdsConverterAdminTest is InstantUsdcUsdsConverterTestBase {
         converter.swap(amount);
     }
 
-    function test_admin_canRotatePauser() public {
-        address newPauser = makeAddr("newPauser");
+    function test_admin_canRotateFreezer() public {
+        address newFreezer = makeAddr("newFreezer");
 
         vm.startPrank(GROVE_PROXY);
-        converter.grantRole(PAUSER_ROLE, newPauser);
-        converter.revokeRole(PAUSER_ROLE, ALM_FREEZER);
+        converter.grantRole(FREEZER_ROLE, newFreezer);
+        converter.revokeRole(FREEZER_ROLE, ALM_FREEZER);
         vm.stopPrank();
 
-        assertTrue(converter.hasRole(PAUSER_ROLE, newPauser));
-        assertFalse(converter.hasRole(PAUSER_ROLE, ALM_FREEZER));
+        assertTrue(converter.hasRole(FREEZER_ROLE, newFreezer));
+        assertFalse(converter.hasRole(FREEZER_ROLE, ALM_FREEZER));
 
+        // The old freezer can no longer eject swappers.
         vm.expectRevert(
-            abi.encodeWithSelector(IAccessControl.AccessControlUnauthorizedAccount.selector, ALM_FREEZER, PAUSER_ROLE)
+            abi.encodeWithSelector(IAccessControl.AccessControlUnauthorizedAccount.selector, ALM_FREEZER, FREEZER_ROLE)
         );
         vm.prank(ALM_FREEZER);
-        converter.pause();
+        converter.removeSwapper(ALM_RELAYER);
 
-        vm.prank(newPauser);
-        converter.pause();
+        // The new freezer can.
+        vm.prank(newFreezer);
+        converter.removeSwapper(ALM_RELAYER);
 
-        assertTrue(converter.paused());
+        assertFalse(converter.hasRole(SWAPPER_ROLE, ALM_RELAYER));
     }
 
     function test_admin_canTransferAdmin() public {
@@ -218,17 +217,17 @@ contract InstantUsdcUsdsConverterAdminTest is InstantUsdcUsdsConverterTestBase {
         // The new admin can manage every role.
         vm.startPrank(newAdmin);
         converter.grantRole(SWAPPER_ROLE, stranger);
-        converter.grantRole(PAUSER_ROLE, stranger);
+        converter.grantRole(FREEZER_ROLE, stranger);
         vm.stopPrank();
 
         assertTrue(converter.hasRole(SWAPPER_ROLE, stranger));
-        assertTrue(converter.hasRole(PAUSER_ROLE, stranger));
+        assertTrue(converter.hasRole(FREEZER_ROLE, stranger));
     }
 
     function test_roleAdmin_isDefaultAdminForAllRoles() public view {
         assertEq(converter.getRoleAdmin(ADMIN_ROLE),   ADMIN_ROLE);
         assertEq(converter.getRoleAdmin(SWAPPER_ROLE), ADMIN_ROLE);
-        assertEq(converter.getRoleAdmin(PAUSER_ROLE),  ADMIN_ROLE);
+        assertEq(converter.getRoleAdmin(FREEZER_ROLE), ADMIN_ROLE);
     }
 
     function test_swapper_canRenounceOwnRole() public {
@@ -238,17 +237,17 @@ contract InstantUsdcUsdsConverterAdminTest is InstantUsdcUsdsConverterTestBase {
         assertFalse(converter.hasRole(SWAPPER_ROLE, ALM_RELAYER));
     }
 
-    function test_pauser_canRenounceOwnRole() public {
+    function test_freezer_canRenounceOwnRole() public {
         vm.prank(ALM_FREEZER);
-        converter.renounceRole(PAUSER_ROLE, ALM_FREEZER);
+        converter.renounceRole(FREEZER_ROLE, ALM_FREEZER);
 
-        assertFalse(converter.hasRole(PAUSER_ROLE, ALM_FREEZER));
+        assertFalse(converter.hasRole(FREEZER_ROLE, ALM_FREEZER));
 
         vm.expectRevert(
-            abi.encodeWithSelector(IAccessControl.AccessControlUnauthorizedAccount.selector, ALM_FREEZER, PAUSER_ROLE)
+            abi.encodeWithSelector(IAccessControl.AccessControlUnauthorizedAccount.selector, ALM_FREEZER, FREEZER_ROLE)
         );
         vm.prank(ALM_FREEZER);
-        converter.pause();
+        converter.removeSwapper(ALM_RELAYER);
     }
 
     function test_swapper_cannotManageRoles() public {
@@ -259,12 +258,12 @@ contract InstantUsdcUsdsConverterAdminTest is InstantUsdcUsdsConverterTestBase {
         converter.grantRole(SWAPPER_ROLE, stranger);
     }
 
-    function test_pauser_cannotManageRoles() public {
+    function test_freezer_cannotManageRoles() public {
         vm.expectRevert(
             abi.encodeWithSelector(IAccessControl.AccessControlUnauthorizedAccount.selector, ALM_FREEZER, ADMIN_ROLE)
         );
         vm.prank(ALM_FREEZER);
-        converter.grantRole(PAUSER_ROLE, stranger);
+        converter.grantRole(FREEZER_ROLE, stranger);
     }
 
 }
@@ -415,27 +414,29 @@ contract InstantUsdcUsdsConverterSwapTest is InstantUsdcUsdsConverterTestBase {
         assertEq(IERC20(DAI).allowance(address(converter),  DAI_USDS), 0);
     }
 
-    function test_swap_revertsWhenPaused() public {
+    function test_swap_revertsAfterSwapperRemoved() public {
         uint256 amount = 10_000e6;
         _fundHolderAndApproveConverter(amount);
 
         vm.prank(ALM_FREEZER);
-        converter.pause();
+        converter.removeSwapper(ALM_RELAYER);
 
-        vm.expectRevert(Pausable.EnforcedPause.selector);
+        vm.expectRevert(
+            abi.encodeWithSelector(IAccessControl.AccessControlUnauthorizedAccount.selector, ALM_RELAYER, SWAPPER_ROLE)
+        );
         vm.prank(ALM_RELAYER);
         converter.swap(amount);
     }
 
-    function test_swap_succeedsAfterUnpause() public {
+    function test_swap_succeedsAfterSwapperRegranted() public {
         uint256 amount = 10_000e6;
         _fundHolderAndApproveConverter(amount);
 
         vm.prank(ALM_FREEZER);
-        converter.pause();
+        converter.removeSwapper(ALM_RELAYER);
 
         vm.prank(GROVE_PROXY);
-        converter.unpause();
+        converter.grantRole(SWAPPER_ROLE, ALM_RELAYER);
 
         vm.prank(ALM_RELAYER);
         uint256 usdsOut = converter.swap(amount);
@@ -696,9 +697,9 @@ contract InstantUsdcUsdsConverterRescueERC20Test is InstantUsdcUsdsConverterTest
         assertEq(IERC20(USDC).balanceOf(address(converter)), 0);
     }
 
-    function test_rescueERC20_worksWhilePaused() public {
+    function test_rescueERC20_worksAfterSwapperRemoved() public {
         vm.prank(ALM_FREEZER);
-        converter.pause();
+        converter.removeSwapper(ALM_RELAYER);
 
         uint256 amount = 1_000e6;
         deal(USDC, address(converter), amount);
@@ -782,9 +783,9 @@ contract InstantUsdcUsdsConverterRescueERC721Test is InstantUsdcUsdsConverterTes
         assertEq(nft.ownerOf(tokenId), GROVE_PROXY);
     }
 
-    function test_rescueERC721_worksWhilePaused() public {
+    function test_rescueERC721_worksAfterSwapperRemoved() public {
         vm.prank(ALM_FREEZER);
-        converter.pause();
+        converter.removeSwapper(ALM_RELAYER);
 
         MockERC721 nft = new MockERC721();
         nft.mint(address(converter), 1);
@@ -797,114 +798,76 @@ contract InstantUsdcUsdsConverterRescueERC721Test is InstantUsdcUsdsConverterTes
 
 }
 
-contract InstantUsdcUsdsConverterPauseTest is InstantUsdcUsdsConverterTestBase {
+contract InstantUsdcUsdsConverterFreezeTest is InstantUsdcUsdsConverterTestBase {
 
-    function test_pause_byPauser() public {
-        vm.expectEmit(true, true, true, true, address(converter));
-        emit Pausable.Paused(ALM_FREEZER);
-        vm.prank(ALM_FREEZER);
-        converter.pause();
-
-        assertTrue(converter.paused());
-    }
-
-    function test_pause_revertsForAdmin() public {
-        vm.expectRevert(
-            abi.encodeWithSelector(IAccessControl.AccessControlUnauthorizedAccount.selector, GROVE_PROXY, PAUSER_ROLE)
-        );
-        vm.prank(GROVE_PROXY);
-        converter.pause();
-    }
-
-    function test_pause_revertsForSwapper() public {
-        vm.expectRevert(
-            abi.encodeWithSelector(IAccessControl.AccessControlUnauthorizedAccount.selector, ALM_RELAYER, PAUSER_ROLE)
-        );
-        vm.prank(ALM_RELAYER);
-        converter.pause();
-    }
-
-    function test_pause_revertsForStranger() public {
-        vm.expectRevert(
-            abi.encodeWithSelector(IAccessControl.AccessControlUnauthorizedAccount.selector, stranger, PAUSER_ROLE)
-        );
-        vm.prank(stranger);
-        converter.pause();
-    }
-
-    function test_pause_revertsWhenAlreadyPaused() public {
-        vm.prank(ALM_FREEZER);
-        converter.pause();
-
-        vm.expectRevert(Pausable.EnforcedPause.selector);
-        vm.prank(ALM_FREEZER);
-        converter.pause();
-    }
-
-    function test_unpause_byAdmin() public {
-        vm.prank(ALM_FREEZER);
-        converter.pause();
+    function test_removeSwapper_byFreezer() public {
+        assertTrue(converter.hasRole(SWAPPER_ROLE, ALM_RELAYER));
 
         vm.expectEmit(true, true, true, true, address(converter));
-        emit Pausable.Unpaused(GROVE_PROXY);
-        vm.prank(GROVE_PROXY);
-        converter.unpause();
+        emit InstantUsdcUsdsConverter.SwapperRemoved(ALM_RELAYER);
+        vm.prank(ALM_FREEZER);
+        converter.removeSwapper(ALM_RELAYER);
 
-        assertFalse(converter.paused());
+        assertFalse(converter.hasRole(SWAPPER_ROLE, ALM_RELAYER));
     }
 
-    function test_unpause_revertsForPauser() public {
-        vm.prank(ALM_FREEZER);
-        converter.pause();
-
+    function test_removeSwapper_revertsForAdmin() public {
         vm.expectRevert(
-            abi.encodeWithSelector(IAccessControl.AccessControlUnauthorizedAccount.selector, ALM_FREEZER, ADMIN_ROLE)
+            abi.encodeWithSelector(IAccessControl.AccessControlUnauthorizedAccount.selector, GROVE_PROXY, FREEZER_ROLE)
         );
-        vm.prank(ALM_FREEZER);
-        converter.unpause();
+        vm.prank(GROVE_PROXY);
+        converter.removeSwapper(ALM_RELAYER);
     }
 
-    function test_unpause_revertsForSwapper() public {
-        vm.prank(ALM_FREEZER);
-        converter.pause();
-
+    function test_removeSwapper_revertsForSwapper() public {
         vm.expectRevert(
-            abi.encodeWithSelector(IAccessControl.AccessControlUnauthorizedAccount.selector, ALM_RELAYER, ADMIN_ROLE)
+            abi.encodeWithSelector(IAccessControl.AccessControlUnauthorizedAccount.selector, ALM_RELAYER, FREEZER_ROLE)
         );
         vm.prank(ALM_RELAYER);
-        converter.unpause();
+        converter.removeSwapper(ALM_RELAYER);
     }
 
-    function test_unpause_revertsForStranger() public {
-        vm.prank(ALM_FREEZER);
-        converter.pause();
-
+    function test_removeSwapper_revertsForStranger() public {
         vm.expectRevert(
-            abi.encodeWithSelector(IAccessControl.AccessControlUnauthorizedAccount.selector, stranger, ADMIN_ROLE)
+            abi.encodeWithSelector(IAccessControl.AccessControlUnauthorizedAccount.selector, stranger, FREEZER_ROLE)
         );
         vm.prank(stranger);
-        converter.unpause();
+        converter.removeSwapper(ALM_RELAYER);
     }
 
-    function test_unpause_revertsWhenNotPaused() public {
-        vm.expectRevert(Pausable.ExpectedPause.selector);
-        vm.prank(GROVE_PROXY);
-        converter.unpause();
+    function test_removeSwapper_onNonSwapperEmitsAndNoops() public {
+        assertFalse(converter.hasRole(SWAPPER_ROLE, stranger));
+
+        vm.expectEmit(true, true, true, true, address(converter));
+        emit InstantUsdcUsdsConverter.SwapperRemoved(stranger);
+        vm.prank(ALM_FREEZER);
+        converter.removeSwapper(stranger);
+
+        assertFalse(converter.hasRole(SWAPPER_ROLE, stranger));
     }
 
-    function test_pauseUnpauseCycle_canRepause() public {
-        vm.prank(ALM_FREEZER);
-        converter.pause();
-        assertTrue(converter.paused());
+    function test_removeSwapper_onlyEjectsTargetedSwapper() public {
+        address otherSwapper = makeAddr("otherSwapper");
 
         vm.prank(GROVE_PROXY);
-        converter.unpause();
-        assertFalse(converter.paused());
+        converter.grantRole(SWAPPER_ROLE, otherSwapper);
 
-        // The switch can be re-armed after an unpause.
         vm.prank(ALM_FREEZER);
-        converter.pause();
-        assertTrue(converter.paused());
+        converter.removeSwapper(ALM_RELAYER);
+
+        assertFalse(converter.hasRole(SWAPPER_ROLE, ALM_RELAYER));
+        assertTrue(converter.hasRole(SWAPPER_ROLE, otherSwapper));
+    }
+
+    function test_removeSwapper_cannotEjectFreezerOrAdmin() public {
+        // The freezer path only revokes SWAPPER_ROLE, never touches other roles.
+        vm.startPrank(ALM_FREEZER);
+        converter.removeSwapper(ALM_FREEZER);
+        converter.removeSwapper(GROVE_PROXY);
+        vm.stopPrank();
+
+        assertTrue(converter.hasRole(FREEZER_ROLE, ALM_FREEZER));
+        assertTrue(converter.hasRole(ADMIN_ROLE,   GROVE_PROXY));
     }
 
 }

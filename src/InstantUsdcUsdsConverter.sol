@@ -2,7 +2,6 @@
 pragma solidity ^0.8.34;
 
 import { AccessControl } from "@openzeppelin/contracts/access/AccessControl.sol";
-import { Pausable }      from "@openzeppelin/contracts/utils/Pausable.sol";
 import { IERC20 }        from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { IERC721 }       from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import { SafeERC20 }     from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
@@ -31,15 +30,15 @@ interface IDaiUsdsLike {
 ///         is whitelisted on the PSM (via `kiss`), otherwise the permissionless `sellGem`; either
 ///         way the settlement must be exactly 1:1 or it reverts. The contract never custodies funds;
 ///         `rescueERC20` / `rescueERC721` recover mistakenly-sent tokens to `holder`.
-contract InstantUsdcUsdsConverter is AccessControl, Pausable {
+contract InstantUsdcUsdsConverter is AccessControl {
 
     using SafeERC20 for IERC20;
 
     /// @notice Role permitted to call {swap}.
     bytes32 public constant SWAPPER_ROLE = keccak256("SWAPPER_ROLE");
 
-    /// @notice Role permitted to call {pause} (pausing only; unpausing is admin-only).
-    bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
+    /// @notice Role permitted to call {removeSwapper} (emergency ejection of a swapper).
+    bytes32 public constant FREEZER_ROLE = keccak256("FREEZER_ROLE");
 
     /// @notice The DAI LitePSM used to sell USDC for DAI.
     ILitePsmLike public immutable litePsm;
@@ -59,7 +58,7 @@ contract InstantUsdcUsdsConverter is AccessControl, Pausable {
 
     error InvalidAdmin();
     error InvalidSwapper();
-    error InvalidPauser();
+    error InvalidFreezer();
     error InvalidHolder();
     error InvalidLitePsm();
     error InvalidDaiUsds();
@@ -80,6 +79,10 @@ contract InstantUsdcUsdsConverter is AccessControl, Pausable {
     ///                    used the permissionless `sellGem` route.
     event Swapped(address indexed caller, uint256 usdcIn, uint256 usdsOut, bool noFeeRoute);
 
+    /// @notice Emitted when a swapper is ejected by a freezer via {removeSwapper}.
+    /// @param  swapper Account whose `SWAPPER_ROLE` was revoked.
+    event SwapperRemoved(address indexed swapper);
+
     /// @notice Emitted when an ERC20 balance is rescued to the holder.
     /// @param  token  Rescued ERC20 token.
     /// @param  amount Amount transferred to the holder.
@@ -90,23 +93,23 @@ contract InstantUsdcUsdsConverter is AccessControl, Pausable {
     /// @param  tokenId Token id transferred to the holder.
     event ERC721Rescued(address indexed token, uint256 tokenId);
 
-    /// @param  admin_    `DEFAULT_ADMIN_ROLE` (role management, unpausing and rescues); the Grove governance proxy.
+    /// @param  admin_    `DEFAULT_ADMIN_ROLE` (role management and rescues); the Grove governance proxy.
     /// @param  swapper_  `SWAPPER_ROLE` (allowed to call the swaps).
-    /// @param  pauser_   `PAUSER_ROLE` (allowed to call {pause}).
+    /// @param  freezer_  `FREEZER_ROLE` (allowed to call {removeSwapper}).
     /// @param  holder_   The Grove governance proxy; USDC is pulled from it and all outputs/rescues are sent to it.
     /// @param  litePsm_  DAI LitePSM exposing gem/dai/to18ConversionFactor/sellGem/sellGemNoFee.
     /// @param  daiUsds_  DAI<>USDS exchanger exposing dai/usds/daiToUsds.
     constructor(
         address admin_,
         address swapper_,
-        address pauser_,
+        address freezer_,
         address holder_,
         address litePsm_,
         address daiUsds_
     ) {
         if (admin_   == address(0)) revert InvalidAdmin();
         if (swapper_ == address(0)) revert InvalidSwapper();
-        if (pauser_  == address(0)) revert InvalidPauser();
+        if (freezer_ == address(0)) revert InvalidFreezer();
         if (holder_  == address(0)) revert InvalidHolder();
         if (litePsm_ == address(0)) revert InvalidLitePsm();
         if (daiUsds_ == address(0)) revert InvalidDaiUsds();
@@ -134,7 +137,7 @@ contract InstantUsdcUsdsConverter is AccessControl, Pausable {
 
         _grantRole(DEFAULT_ADMIN_ROLE, admin_);
         _grantRole(SWAPPER_ROLE, swapper_);
-        _grantRole(PAUSER_ROLE, pauser_);
+        _grantRole(FREEZER_ROLE, freezer_);
     }
 
     /********************************************************************************************/
@@ -146,7 +149,7 @@ contract InstantUsdcUsdsConverter is AccessControl, Pausable {
     /// @dev    Uses `sellGemNoFee` when whitelisted on the PSM (via `kiss`), otherwise `sellGem`.
     /// @param  usdcAmount Amount of USDC (6 decimals) to swap.
     /// @return usdsOut Amount of USDS (18 decimals) delivered to the holder.
-    function swap(uint256 usdcAmount) external onlyRole(SWAPPER_ROLE) whenNotPaused returns (uint256 usdsOut) {
+    function swap(uint256 usdcAmount) external onlyRole(SWAPPER_ROLE) returns (uint256 usdsOut) {
         if (usdcAmount == 0) revert ZeroAmount();
 
         uint256 holderUsdsBefore = usds.balanceOf(holder);
@@ -177,18 +180,15 @@ contract InstantUsdcUsdsConverter is AccessControl, Pausable {
     }
 
     /********************************************************************************************/
-    /*** Pausing                                                                              ***/
+    /*** Freezing                                                                             ***/
     /********************************************************************************************/
 
-    /// @notice Pauses swapping as an emergency backstop. Callable only by `PAUSER_ROLE`;
-    ///         rescues remain available while paused.
-    function pause() external onlyRole(PAUSER_ROLE) {
-        _pause();
-    }
-
-    /// @notice Resumes swapping after a pause. Callable only by `DEFAULT_ADMIN_ROLE`.
-    function unpause() external onlyRole(DEFAULT_ADMIN_ROLE) {
-        _unpause();
+    /// @notice Ejects a swapper as an emergency stop by revoking its `SWAPPER_ROLE`. Callable only
+    ///         by `FREEZER_ROLE`; re-granting the role afterwards is `DEFAULT_ADMIN_ROLE`-only.
+    /// @param  swapper Account to strip `SWAPPER_ROLE` from.
+    function removeSwapper(address swapper) external onlyRole(FREEZER_ROLE) {
+        _revokeRole(SWAPPER_ROLE, swapper);
+        emit SwapperRemoved(swapper);
     }
 
     /********************************************************************************************/

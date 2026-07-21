@@ -33,7 +33,7 @@ contract DeployInstantUsdcUsdsConverterScriptTest is Test {
 
         assertTrue(converter.hasRole(converter.DEFAULT_ADMIN_ROLE(), Ethereum.GROVE_PROXY));
         assertTrue(converter.hasRole(converter.SWAPPER_ROLE(),       Ethereum.ALM_RELAYER));
-        assertTrue(converter.hasRole(converter.PAUSER_ROLE(),        Ethereum.ALM_FREEZER));
+        assertTrue(converter.hasRole(converter.FREEZER_ROLE(),       Ethereum.ALM_FREEZER));
     }
 
     function test_mainnetScript_revertsOffMainnet() public {
@@ -48,14 +48,14 @@ contract DeployInstantUsdcUsdsConverterScriptTest is Test {
     function test_customScript_deploysFromEnv() public {
         address admin   = Ethereum.GROVE_PROXY;
         address swapper = Ethereum.ALM_RELAYER;
-        address pauser  = Ethereum.ALM_FREEZER;
+        address freezer = Ethereum.ALM_FREEZER;
         address holder  = Ethereum.GROVE_PROXY;
         address litePsm = Ethereum.PSM;
         address daiUsds = Ethereum.DAI_USDS;
 
         vm.setEnv("CONVERTER_ADMIN",    vm.toString(admin));
         vm.setEnv("CONVERTER_SWAPPER",  vm.toString(swapper));
-        vm.setEnv("CONVERTER_PAUSER",   vm.toString(pauser));
+        vm.setEnv("CONVERTER_FREEZER",  vm.toString(freezer));
         vm.setEnv("CONVERTER_HOLDER",   vm.toString(holder));
         vm.setEnv("CONVERTER_LITE_PSM", vm.toString(litePsm));
         vm.setEnv("CONVERTER_DAI_USDS", vm.toString(daiUsds));
@@ -72,7 +72,7 @@ contract DeployInstantUsdcUsdsConverterScriptTest is Test {
 
         assertTrue(converter.hasRole(converter.DEFAULT_ADMIN_ROLE(), admin));
         assertTrue(converter.hasRole(converter.SWAPPER_ROLE(),       swapper));
-        assertTrue(converter.hasRole(converter.PAUSER_ROLE(),        pauser));
+        assertTrue(converter.hasRole(converter.FREEZER_ROLE(),       freezer));
     }
 
 }

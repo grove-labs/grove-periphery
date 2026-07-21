@@ -15,7 +15,7 @@ abstract contract DeployInstantUsdcUsdsConverterBase is Script {
     function _deploy(
         address admin,
         address swapper,
-        address pauser,
+        address freezer,
         address holder,
         address litePsm,
         address daiUsds
@@ -24,7 +24,7 @@ abstract contract DeployInstantUsdcUsdsConverterBase is Script {
         converter = InstantUsdcUsdsConverterDeploy.deploy({
             admin   : admin,
             swapper : swapper,
-            pauser  : pauser,
+            freezer : freezer,
             holder  : holder,
             litePsm : litePsm,
             daiUsds : daiUsds
@@ -34,7 +34,7 @@ abstract contract DeployInstantUsdcUsdsConverterBase is Script {
         console.log("InstantUsdcUsdsConverter deployed:", address(converter));
         console.log("  admin    : ", admin);
         console.log("  swapper  : ", swapper);
-        console.log("  pauser   : ", pauser);
+        console.log("  freezer  : ", freezer);
         console.log("  holder   : ", holder);
         console.log("  litePsm  : ", litePsm);
         console.log("  daiUsds  : ", daiUsds);
@@ -55,7 +55,7 @@ contract DeployInstantUsdcUsdsConverterMainnet is DeployInstantUsdcUsdsConverter
         converter = _deploy({
             admin   : Ethereum.GROVE_PROXY,
             swapper : Ethereum.ALM_RELAYER,
-            pauser  : Ethereum.ALM_FREEZER,
+            freezer : Ethereum.ALM_FREEZER,
             holder  : Ethereum.GROVE_PROXY,
             litePsm : Ethereum.PSM,
             daiUsds : Ethereum.DAI_USDS
@@ -71,7 +71,7 @@ contract DeployInstantUsdcUsdsConverterMainnet is DeployInstantUsdcUsdsConverter
 ///         Required environment variables:
 ///           CONVERTER_ADMIN    - address granted DEFAULT_ADMIN_ROLE
 ///           CONVERTER_SWAPPER  - address granted SWAPPER_ROLE
-///           CONVERTER_PAUSER   - address granted PAUSER_ROLE
+///           CONVERTER_FREEZER  - address granted FREEZER_ROLE
 ///           CONVERTER_HOLDER   - address funds are pulled from and delivered to
 ///           CONVERTER_LITE_PSM - DAI LitePSM exposing gem/dai/to18ConversionFactor/sellGem
 ///           CONVERTER_DAI_USDS - DAI<>USDS exchanger exposing dai/usds/daiToUsds
@@ -81,7 +81,7 @@ contract DeployInstantUsdcUsdsConverterCustom is DeployInstantUsdcUsdsConverterB
         converter = _deploy({
             admin   : vm.envAddress("CONVERTER_ADMIN"),
             swapper : vm.envAddress("CONVERTER_SWAPPER"),
-            pauser  : vm.envAddress("CONVERTER_PAUSER"),
+            freezer : vm.envAddress("CONVERTER_FREEZER"),
             holder  : vm.envAddress("CONVERTER_HOLDER"),
             litePsm : vm.envAddress("CONVERTER_LITE_PSM"),
             daiUsds : vm.envAddress("CONVERTER_DAI_USDS")

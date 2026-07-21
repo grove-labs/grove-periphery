@@ -29,7 +29,7 @@ Key properties:
 - **Verified settlement.** After converting, `swap` clears any allowance the PSM or exchanger did not consume and requires the holder's USDS balance to have risen by exactly `usdsOut`, so a leg that leaves a dangling approval or reports success without delivering causes a revert.
 - **Holds no funds.** `swap` pulls and forwards atomically (the intermediate DAI never lingers), leaving no residual balance or allowance. The `rescueERC20` and `rescueERC721` functions exist only to recover tokens sent here by mistake, and always route them to `holder`.
 - **No reentrancy surface.** `swap` interacts only with the fixed, immutable USDC/DAI/USDS tokens and the LitePSM/DAI<>USDS exchanger, none of which hand control back to the caller, so there is no callback to re-enter through. The rescues are restricted to `DEFAULT_ADMIN_ROLE` (the Grove governance proxy, acting through vetted spells), so no untrusted token is rescued in the first place.
-- **Pausable backstop.** `swap` is gated by a pause switch. Only `PAUSER_ROLE` can `pause` as an emergency stop, and only `DEFAULT_ADMIN_ROLE` can `unpause`. Rescues remain available while paused.
+- **Freezer backstop.** Only `FREEZER_ROLE` can call `removeSwapper` to eject a swapper (revoking its `SWAPPER_ROLE`) as an emergency stop. Re-granting the role afterwards is `DEFAULT_ADMIN_ROLE`-only. Rescues are unaffected.
 - **No ETH rescue.** The contract is not payable, so it rejects ordinary ETH transfers and cannot accumulate ETH by accident. There is deliberately no `rescueEth` function: the only way to lodge ETH here is to force it (e.g. via `selfdestruct`), which is an intentional act rather than an honest mistake, and `holder` (the Grove governance subproxy) cannot receive ETH anyway, so a rescue routed to it would always revert.
 
 ### Roles
@@ -38,9 +38,9 @@ Access control uses OpenZeppelin `AccessControl`:
 
 | Role | Capability | Mainnet holder |
 | --- | --- | --- |
-| `DEFAULT_ADMIN_ROLE` | Manage roles; `unpause`; call `rescueERC20` / `rescueERC721` | Grove governance subproxy |
+| `DEFAULT_ADMIN_ROLE` | Manage roles; call `rescueERC20` / `rescueERC721` | Grove governance subproxy |
 | `SWAPPER_ROLE` | Call `swap` | ALM relayer |
-| `PAUSER_ROLE` | Call `pause` (pausing only; unpausing is admin-only) | ALM freezer multisig |
+| `FREEZER_ROLE` | Call `removeSwapper` (eject a swapper only) | ALM freezer multisig |
 
 ### Fee-free whitelisting
 
@@ -54,7 +54,7 @@ Access control uses OpenZeppelin `AccessControl`:
 | --- | --- |
 | `admin_` | `Ethereum.GROVE_PROXY` |
 | `swapper_` | `Ethereum.ALM_RELAYER` |
-| `pauser_` | `Ethereum.ALM_FREEZER` |
+| `freezer_` | `Ethereum.ALM_FREEZER` |
 | `holder_` | `Ethereum.GROVE_PROXY` |
 | `litePsm_` | `Ethereum.PSM` (DAI LitePSM-USDC) |
 | `daiUsds_` | `Ethereum.DAI_USDS` (DAI↔USDS exchanger) |
@@ -85,7 +85,7 @@ forge script script/DeployInstantUsdcUsdsConverter.s.sol:DeployInstantUsdcUsdsCo
 
 #### Custom (addresses from environment)
 
-`DeployInstantUsdcUsdsConverterCustom` reads every constructor argument from the environment, so it can deploy to any chain. Set `CONVERTER_ADMIN`, `CONVERTER_SWAPPER`, `CONVERTER_PAUSER`, `CONVERTER_HOLDER`, `CONVERTER_LITE_PSM`, and `CONVERTER_DAI_USDS` (see `.env.example`) to values valid on the target chain, then:
+`DeployInstantUsdcUsdsConverterCustom` reads every constructor argument from the environment, so it can deploy to any chain. Set `CONVERTER_ADMIN`, `CONVERTER_SWAPPER`, `CONVERTER_FREEZER`, `CONVERTER_HOLDER`, `CONVERTER_LITE_PSM`, and `CONVERTER_DAI_USDS` (see `.env.example`) to values valid on the target chain, then:
 
 ```shell
 forge script script/DeployInstantUsdcUsdsConverter.s.sol:DeployInstantUsdcUsdsConverterCustom \
@@ -94,7 +94,7 @@ forge script script/DeployInstantUsdcUsdsConverter.s.sol:DeployInstantUsdcUsdsCo
   --verify
 ```
 
-Both scripts log the deployed address and the resolved `admin`, `swapper`, `pauser`, `holder`, `litePsm`, and `daiUsds` values.
+Both scripts log the deployed address and the resolved `admin`, `swapper`, `freezer`, `holder`, `litePsm`, and `daiUsds` values.
 
 #### Post-deployment verification
 

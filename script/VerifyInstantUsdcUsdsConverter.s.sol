@@ -20,7 +20,7 @@ abstract contract VerifyInstantUsdcUsdsConverterBase is Script {
         address converter_,
         address admin,
         address swapper,
-        address pauser,
+        address freezer,
         address holder,
         address litePsm,
         address daiUsds,
@@ -41,7 +41,7 @@ abstract contract VerifyInstantUsdcUsdsConverterBase is Script {
 
         require(converter.hasRole(converter.DEFAULT_ADMIN_ROLE(), admin),   "verify/admin-role");
         require(converter.hasRole(converter.SWAPPER_ROLE(),       swapper), "verify/swapper-role");
-        require(converter.hasRole(converter.PAUSER_ROLE(),        pauser),  "verify/pauser-role");
+        require(converter.hasRole(converter.FREEZER_ROLE(),       freezer), "verify/freezer-role");
 
         console.log("InstantUsdcUsdsConverter verified:", converter_);
     }
@@ -66,7 +66,7 @@ contract VerifyInstantUsdcUsdsConverterMainnet is VerifyInstantUsdcUsdsConverter
             converter_       : converter_,
             admin            : Ethereum.GROVE_PROXY,
             swapper          : Ethereum.ALM_RELAYER,
-            pauser           : Ethereum.ALM_FREEZER,
+            freezer          : Ethereum.ALM_FREEZER,
             holder           : Ethereum.GROVE_PROXY,
             litePsm          : Ethereum.PSM,
             daiUsds          : Ethereum.DAI_USDS,
@@ -87,7 +87,7 @@ contract VerifyInstantUsdcUsdsConverterMainnet is VerifyInstantUsdcUsdsConverter
 ///           CONVERTER_ADDRESS  - deployed InstantUsdcUsdsConverter to verify
 ///           CONVERTER_ADMIN    - expected DEFAULT_ADMIN_ROLE holder
 ///           CONVERTER_SWAPPER  - expected SWAPPER_ROLE holder
-///           CONVERTER_PAUSER   - expected PAUSER_ROLE holder
+///           CONVERTER_FREEZER  - expected FREEZER_ROLE holder
 ///           CONVERTER_HOLDER   - expected holder
 ///           CONVERTER_LITE_PSM - expected LitePSM
 ///           CONVERTER_DAI_USDS - expected DAI<>USDS exchanger
@@ -98,7 +98,7 @@ contract VerifyInstantUsdcUsdsConverterCustom is VerifyInstantUsdcUsdsConverterB
             vm.envAddress("CONVERTER_ADDRESS"),
             vm.envAddress("CONVERTER_ADMIN"),
             vm.envAddress("CONVERTER_SWAPPER"),
-            vm.envAddress("CONVERTER_PAUSER"),
+            vm.envAddress("CONVERTER_FREEZER"),
             vm.envAddress("CONVERTER_HOLDER"),
             vm.envAddress("CONVERTER_LITE_PSM"),
             vm.envAddress("CONVERTER_DAI_USDS")
@@ -109,7 +109,7 @@ contract VerifyInstantUsdcUsdsConverterCustom is VerifyInstantUsdcUsdsConverterB
         address converter_,
         address admin,
         address swapper,
-        address pauser,
+        address freezer,
         address holder,
         address litePsm,
         address daiUsds
@@ -121,7 +121,7 @@ contract VerifyInstantUsdcUsdsConverterCustom is VerifyInstantUsdcUsdsConverterB
             converter_       : converter_,
             admin            : admin,
             swapper          : swapper,
-            pauser           : pauser,
+            freezer          : freezer,
             holder           : holder,
             litePsm          : litePsm,
             daiUsds          : daiUsds,
