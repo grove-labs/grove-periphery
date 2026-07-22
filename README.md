@@ -11,7 +11,7 @@ This repository currently contains a single contract, `InstantUsdcUsdsConverter`
 
 ## 💱 InstantUsdcUsdsConverter
 
-`InstantUsdcUsdsConverter` performs a one directional, atomic USDC to USDS swap on behalf of a fixed `holder`:
+`InstantUsdcUsdsConverter` performs a one-directional, atomic USDC to USDS swap on behalf of a fixed `holder`:
 
 1. Pulls `usdcAmount` USDC from `holder` (which must have approved the converter).
 2. Sells the USDC to the DAI LitePSM for DAI.
@@ -28,7 +28,7 @@ Key properties:
 - **1:1, no fee.** `swap` requires the swap to yield exactly `usdcAmount * conversionFactor` USDS. On the `sellGem` route, if the output would settle short because the PSM sell fee (`tin`) is non-zero, it reverts with `not-one-to-one` instead of settling at a loss; the whitelisted `sellGemNoFee` route waives the fee entirely (but is still halted if the PSM sets `tin` to its halt sentinel).
 - **Verified settlement.** After converting, `swap` clears any allowance the PSM or exchanger did not consume and requires the holder's USDS balance to have risen by exactly `usdsOut`, so a leg that leaves a dangling approval or reports success without delivering causes a revert.
 - **Holds no funds.** `swap` pulls and forwards atomically (the intermediate DAI never lingers), leaving no residual balance or allowance. The `rescueERC20` and `rescueERC721` functions exist only to recover tokens sent here by mistake, and always route them to `holder`.
-- **No reentrancy surface.** `swap` interacts only with the fixed, immutable USDC/DAI/USDS tokens and the LitePSM/DAI<>USDS exchanger, none of which hand control back to the caller, so there is no callback to re-enter through. The rescues are restricted to `DEFAULT_ADMIN_ROLE` (the Grove governance proxy, acting through vetted spells), so no untrusted token is rescued in the first place.
+- **No reentrancy surface.** `swap` interacts only with the fixed, immutable USDC/DAI/USDS tokens and the LitePSM/DAI↔USDS exchanger, none of which hand control back to the caller, so there is no callback to re-enter through. The rescues are restricted to `DEFAULT_ADMIN_ROLE` (the Grove governance proxy, acting through vetted spells), so no untrusted token is rescued in the first place.
 - **Freezer backstop.** Only `FREEZER_ROLE` can call `removeSwapper` to eject a swapper (revoking its `SWAPPER_ROLE`) as an emergency stop. Re-granting the role afterwards is `DEFAULT_ADMIN_ROLE`-only. Rescues are unaffected.
 - **No ETH rescue.** The contract is not payable, so it rejects ordinary ETH transfers and cannot accumulate ETH by accident. There is deliberately no `rescueEth` function: the only way to lodge ETH here is to force it (e.g. via `selfdestruct`), which is an intentional act rather than an honest mistake, and `holder` (the Grove governance subproxy) cannot receive ETH anyway, so a rescue routed to it would always revert.
 
