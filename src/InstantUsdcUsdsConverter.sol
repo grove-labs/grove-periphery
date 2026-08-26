@@ -207,16 +207,4 @@ contract InstantUsdcUsdsConverter is AccessControl {
         emit ERC20Rescued(address(token), amount);
     }
 
-    /// @notice Rescues a specific ERC721 token held by this contract, sending it to `holder`.
-    /// @dev    Uses `transferFrom` rather than `safeTransferFrom`: `holder` is a governance
-    ///         contract that may not implement `onERC721Received`, which would otherwise brick
-    ///         the rescue.
-    /// @param  token   ERC721 token to rescue from.
-    /// @param  tokenId Token id to transfer to `holder`.
-    function rescueERC721(IERC721 token, uint256 tokenId) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        token.transferFrom(address(this), holder, tokenId);
-
-        emit ERC721Rescued(address(token), tokenId);
-    }
-
 }
