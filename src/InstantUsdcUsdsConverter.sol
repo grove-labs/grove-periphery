@@ -87,7 +87,7 @@ contract InstantUsdcUsdsConverter is AccessControl {
     /// @param  amount Amount transferred to the holder.
     event ERC20Rescued(address indexed token, uint256 amount);
 
-    /// @param  admin_    `DEFAULT_ADMIN_ROLE` (role management and rescues); the Grove governance proxy.
+    /// @param  admin_    `DEFAULT_ADMIN_ROLE` (role management and rescue); the Grove governance proxy.
     /// @param  swapper_  `SWAPPER_ROLE` (allowed to call the swaps).
     /// @param  freezer_  `FREEZER_ROLE` (allowed to call {removeSwapper}).
     /// @param  holder_   The Grove governance proxy; USDC is pulled from it and all outputs/rescues are sent to it.
