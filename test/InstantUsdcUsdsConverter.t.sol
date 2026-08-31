@@ -5,15 +5,12 @@ import { Test } from "forge-std/Test.sol";
 
 import { IAccessControl } from "@openzeppelin/contracts/access/IAccessControl.sol";
 import { IERC20 }         from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import { IERC721 }        from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
-import { IERC721Errors }  from "@openzeppelin/contracts/interfaces/draft-IERC6093.sol";
 
 import { Ethereum } from "grove-address-registry/Ethereum.sol";
 
 import { InstantUsdcUsdsConverter }       from "../src/InstantUsdcUsdsConverter.sol";
 import { InstantUsdcUsdsConverterDeploy } from "../deploy/InstantUsdcUsdsConverterDeploy.sol";
 
-import { MockERC721 }  from "./mocks/MockERC721.sol";
 import { MockLitePsm } from "./mocks/MockLitePsm.sol";
 import { MockDaiUsds } from "./mocks/MockDaiUsds.sol";
 
@@ -708,92 +705,6 @@ contract InstantUsdcUsdsConverterRescueERC20Test is InstantUsdcUsdsConverterTest
         uint256 rescued = converter.rescueERC20(IERC20(USDC));
 
         assertEq(rescued, amount);
-    }
-
-}
-
-contract InstantUsdcUsdsConverterRescueERC721Test is InstantUsdcUsdsConverterTestBase {
-
-    function test_rescueERC721_success() public {
-        MockERC721 nft = new MockERC721();
-        uint256 tokenId = 42;
-        nft.mint(address(converter), tokenId);
-
-        assertEq(nft.ownerOf(tokenId), address(converter));
-
-        vm.prank(GROVE_PROXY);
-        converter.rescueERC721(nft, tokenId);
-
-        // Reaches the holder even though GROVE_PROXY does not implement onERC721Received.
-        assertEq(nft.ownerOf(tokenId), GROVE_PROXY);
-    }
-
-    function test_rescueERC721_emitsERC721Rescued() public {
-        MockERC721 nft = new MockERC721();
-        uint256 tokenId = 42;
-        nft.mint(address(converter), tokenId);
-
-        vm.expectEmit(true, true, true, true, address(converter));
-        emit InstantUsdcUsdsConverter.ERC721Rescued(address(nft), tokenId);
-
-        vm.prank(GROVE_PROXY);
-        converter.rescueERC721(nft, tokenId);
-    }
-
-    function test_rescueERC721_revertsForNonAdmin() public {
-        MockERC721 nft = new MockERC721();
-        nft.mint(address(converter), 1);
-
-        vm.expectRevert(
-            abi.encodeWithSelector(IAccessControl.AccessControlUnauthorizedAccount.selector, stranger, ADMIN_ROLE)
-        );
-        vm.prank(stranger);
-        converter.rescueERC721(nft, 1);
-    }
-
-    function test_rescueERC721_revertsForSwapper() public {
-        MockERC721 nft = new MockERC721();
-        nft.mint(address(converter), 1);
-
-        vm.expectRevert(
-            abi.encodeWithSelector(IAccessControl.AccessControlUnauthorizedAccount.selector, ALM_RELAYER, ADMIN_ROLE)
-        );
-        vm.prank(ALM_RELAYER);
-        converter.rescueERC721(nft, 1);
-    }
-
-    function test_rescueERC721_revertsWhenNotOwned() public {
-        MockERC721 nft = new MockERC721();
-        uint256 tokenId = 7; // never minted, so the converter does not own it
-
-        vm.expectRevert(
-            abi.encodeWithSelector(IERC721Errors.ERC721NonexistentToken.selector, tokenId)
-        );
-        vm.prank(GROVE_PROXY);
-        converter.rescueERC721(nft, tokenId);
-    }
-
-    function testFuzz_rescueERC721(uint256 tokenId) public {
-        MockERC721 nft = new MockERC721();
-        nft.mint(address(converter), tokenId);
-
-        vm.prank(GROVE_PROXY);
-        converter.rescueERC721(nft, tokenId);
-
-        assertEq(nft.ownerOf(tokenId), GROVE_PROXY);
-    }
-
-    function test_rescueERC721_worksAfterSwapperRemoved() public {
-        vm.prank(ALM_FREEZER);
-        converter.removeSwapper(ALM_RELAYER);
-
-        MockERC721 nft = new MockERC721();
-        nft.mint(address(converter), 1);
-
-        vm.prank(GROVE_PROXY);
-        converter.rescueERC721(nft, 1);
-
-        assertEq(nft.ownerOf(1), GROVE_PROXY);
     }
 
 }

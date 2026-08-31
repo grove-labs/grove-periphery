@@ -3,7 +3,6 @@ pragma solidity ^0.8.34;
 
 import { AccessControl } from "@openzeppelin/contracts/access/AccessControl.sol";
 import { IERC20 }        from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import { IERC721 }       from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import { SafeERC20 }     from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 /// @notice Minimal interface for the DAI LitePSM the converter sells USDC into.
@@ -29,7 +28,7 @@ interface IDaiUsdsLike {
 ///         into USDS routed back to `holder`. It uses the fee-free `sellGemNoFee` when this contract
 ///         is whitelisted on the PSM (via `kiss`), otherwise the permissionless `sellGem`; either
 ///         way the settlement must be exactly 1:1 or it reverts. The contract never custodies funds;
-///         `rescueERC20` / `rescueERC721` recover mistakenly-sent tokens to `holder`.
+///         `rescueERC20` recovers mistakenly-sent tokens to `holder`.
 contract InstantUsdcUsdsConverter is AccessControl {
 
     using SafeERC20 for IERC20;
@@ -88,12 +87,7 @@ contract InstantUsdcUsdsConverter is AccessControl {
     /// @param  amount Amount transferred to the holder.
     event ERC20Rescued(address indexed token, uint256 amount);
 
-    /// @notice Emitted when an ERC721 token is rescued to the holder.
-    /// @param  token   Rescued ERC721 token.
-    /// @param  tokenId Token id transferred to the holder.
-    event ERC721Rescued(address indexed token, uint256 tokenId);
-
-    /// @param  admin_    `DEFAULT_ADMIN_ROLE` (role management and rescues); the Grove governance proxy.
+    /// @param  admin_    `DEFAULT_ADMIN_ROLE` (role management and rescue); the Grove governance proxy.
     /// @param  swapper_  `SWAPPER_ROLE` (allowed to call the swaps).
     /// @param  freezer_  `FREEZER_ROLE` (allowed to call {removeSwapper}).
     /// @param  holder_   The Grove governance proxy; USDC is pulled from it and all outputs/rescues are sent to it.
@@ -205,18 +199,6 @@ contract InstantUsdcUsdsConverter is AccessControl {
         token.safeTransfer(holder, amount);
 
         emit ERC20Rescued(address(token), amount);
-    }
-
-    /// @notice Rescues a specific ERC721 token held by this contract, sending it to `holder`.
-    /// @dev    Uses `transferFrom` rather than `safeTransferFrom`: `holder` is a governance
-    ///         contract that may not implement `onERC721Received`, which would otherwise brick
-    ///         the rescue.
-    /// @param  token   ERC721 token to rescue from.
-    /// @param  tokenId Token id to transfer to `holder`.
-    function rescueERC721(IERC721 token, uint256 tokenId) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        token.transferFrom(address(this), holder, tokenId);
-
-        emit ERC721Rescued(address(token), tokenId);
     }
 
 }

@@ -18,8 +18,12 @@ jobs:
         with:
           submodules: recursive
 
+      # Pinned: forge 1.8.0 fails fork setup against Alchemy endpoints
+      # (foundry-rs/foundry#16413); unpin once a fixed release is out.
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: v1.7.1
 
       - name: Build contracts
         run: |
@@ -35,6 +39,8 @@ jobs:
 
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: v1.7.1
 
       - name: Run tests
         env:
@@ -53,6 +59,8 @@ jobs:
 
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: v1.7.1
 
       - name: Run coverage
         env:
